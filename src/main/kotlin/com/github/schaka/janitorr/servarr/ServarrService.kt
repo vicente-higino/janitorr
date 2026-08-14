@@ -10,6 +10,8 @@ interface ServarrService {
 
     fun removeEntries(items: List<LibraryItem>)
 
+    fun unmonitorWatched(media: WatchedMedia)
+
     /**
      * Sort by oldest file. If upgrades are allowed, sort by most recently grabbed files.
      */

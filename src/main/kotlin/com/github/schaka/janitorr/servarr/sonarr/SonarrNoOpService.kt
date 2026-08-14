@@ -2,6 +2,7 @@ package com.github.schaka.janitorr.servarr.sonarr
 
 import com.github.schaka.janitorr.servarr.LibraryItem
 import com.github.schaka.janitorr.servarr.ServarrService
+import com.github.schaka.janitorr.servarr.WatchedMedia
 import org.slf4j.LoggerFactory
 
 class SonarrNoOpService : ServarrService {
@@ -17,5 +18,9 @@ class SonarrNoOpService : ServarrService {
 
     override fun removeEntries(items: List<LibraryItem>) {
         log.info("Sonarr is disabled, not deleting any shows")
+    }
+
+    override fun unmonitorWatched(media: WatchedMedia) {
+        log.debug("Sonarr is disabled, not unmonitoring watched media")
     }
 }

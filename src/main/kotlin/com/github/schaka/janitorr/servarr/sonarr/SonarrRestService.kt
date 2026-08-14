@@ -7,10 +7,12 @@ import com.github.schaka.janitorr.servarr.HistorySort.MOST_RECENT
 import com.github.schaka.janitorr.servarr.HistorySort.OLDEST
 import com.github.schaka.janitorr.servarr.LibraryItem
 import com.github.schaka.janitorr.servarr.ServarrService
+import com.github.schaka.janitorr.servarr.WatchedMedia
 import com.github.schaka.janitorr.servarr.data_structures.SonarrImportListExclusion
 import com.github.schaka.janitorr.servarr.data_structures.Tag
 import com.github.schaka.janitorr.servarr.history.HistoryResponse
 import com.github.schaka.janitorr.servarr.sonarr.episodes.EpisodeResponse
+import com.github.schaka.janitorr.servarr.sonarr.episodes.MonitoringRequest
 import com.github.schaka.janitorr.servarr.sonarr.series.Season
 import com.github.schaka.janitorr.servarr.sonarr.series.SeriesPayload
 import org.slf4j.LoggerFactory
@@ -162,6 +164,94 @@ open class SonarrRestService(
         else {
             removeBySeason(items)
         }
+    }
+
+    override fun unmonitorWatched(media: WatchedMedia) {
+        if (media !is WatchedMedia.Episode) {
+            return
+        }
+
+        val series = findSeries(media) ?: return
+        if (series.tags.any { seriesTagId -> keepTags.any { it.id == seriesTagId } }) {
+            log.info("Not unmonitoring watched episode of {} because it has an exclusion tag", series.title)
+            return
+        }
+
+        val episodes = sonarrClient.getAllEpisodes(series.id, media.seasonNumber)
+        val watchedEpisodes = episodes.filter { it.episodeNumber in media.episodeNumbers }
+        if (watchedEpisodes.isEmpty()) {
+            log.warn(
+                "Could not match watched episode {} S{}E{} in Sonarr",
+                series.title,
+                media.seasonNumber,
+                media.episodeNumber,
+            )
+            return
+        }
+
+        val sharedFileIds = watchedEpisodes
+            .mapNotNull(EpisodeResponse::episodeFileId)
+            .filter { it != 0 }
+            .toSet()
+        val episodesToUnmonitor = episodes
+            .filter { episode ->
+                episode.episodeNumber in media.episodeNumbers ||
+                    (episode.episodeFileId != null && episode.episodeFileId != 0 && episode.episodeFileId in sharedFileIds)
+            }
+            .filter(EpisodeResponse::monitored)
+            .distinctBy(EpisodeResponse::id)
+
+        if (episodesToUnmonitor.isEmpty()) {
+            log.debug(
+                "Watched episode {} S{}E{} is already unmonitored",
+                series.title,
+                media.seasonNumber,
+                media.episodeNumber,
+            )
+            return
+        }
+
+        val episodeIds = episodesToUnmonitor.map(EpisodeResponse::id)
+        if (applicationProperties.dryRun) {
+            log.info(
+                "Dry run - would unmonitor watched episode {} S{}E{} (Sonarr episode ids: {})",
+                series.title,
+                media.seasonNumber,
+                media.episodeNumber,
+                episodeIds,
+            )
+            return
+        }
+
+        sonarrClient.changeMonitoringStatus(MonitoringRequest(episodeIds))
+        log.info(
+            "Unmonitoring watched episode {} S{}E{} (Sonarr episode ids: {})",
+            series.title,
+            media.seasonNumber,
+            media.episodeNumber,
+            episodeIds,
+        )
+    }
+
+    private fun findSeries(media: WatchedMedia.Episode): SeriesPayload? {
+        val allSeries = sonarrClient.getAllSeries()
+        val matches = media.tvdbId
+            ?.let { tvdbId -> allSeries.filter { it.tvdbId == tvdbId } }
+            ?.takeIf { it.isNotEmpty() }
+            ?: media.imdbId?.let { imdbId -> allSeries.filter { it.imdbId.equals(imdbId, ignoreCase = true) } }
+            ?: emptyList()
+
+        if (matches.size != 1) {
+            log.warn(
+                "Could not uniquely match watched series {} in Sonarr (tvdb: {}, imdb: {}, matches: {})",
+                media.title,
+                media.tvdbId,
+                media.imdbId,
+                matches.size,
+            )
+            return null
+        }
+        return matches.single()
     }
 
     /**

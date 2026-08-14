@@ -45,6 +45,9 @@ interface MediaServerClient {
     @RequestLine("GET /Movies/{movieId}?fields=Path,ProviderIds")
     fun getMovie(@Param("movieId") movieId: String): ItemPage<LibraryContent>
 
+    @RequestLine("GET /Items/{itemId}?fields=Path,ProviderIds")
+    fun getItem(@Param("itemId") itemId: String): LibraryContent
+
     @RequestLine("GET /Users/{userId}/Items?Filters=IsFavorite&IncludeItemTypes=Movie,Series&Fields=ProviderIds&Recursive=true&Limit=10000")
     fun getUserFavorites(@Param("userId") userId: String): ItemPage<LibraryContent>
 }

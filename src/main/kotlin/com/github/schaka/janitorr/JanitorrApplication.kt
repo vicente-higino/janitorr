@@ -54,6 +54,7 @@ import java.nio.file.Path
         "com.github.schaka.janitorr.stats.jellystat.requests.JellyStatHistoryResponse",
         "com.github.schaka.janitorr.stats.jellystat.requests.JellystatItemRequest",
         "com.github.schaka.janitorr.stats.streamystats.requests.StreamystatsHistoryResponse",
+        "com.github.schaka.janitorr.webhook.JellyfinPlaybackWebhook",
     ]
 )
 class JanitorrApplication {

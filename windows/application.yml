@@ -28,6 +28,12 @@ application:
     - "janitorr_keep"
     - "janitorr_keep_too"
 
+  # React to Jellyfin PlaybackStop webhooks and unmonitor media that Jellyfin marked played.
+  # Requires the official Jellyfin Webhook plugin; see the README for destination setup.
+  unmonitor-after-watch:
+    enabled: false
+    webhook-secret: "replace-with-a-long-random-secret"
+
   media-deletion:
     enabled: true
     movie-expiration:

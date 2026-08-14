@@ -11,5 +11,6 @@ data class EpisodeResponse(
         val episodeFile: EpisodeFile?,
         val path: String?,
         val airDate: String?,
-        val hasFile: Boolean
+        val hasFile: Boolean,
+        val monitored: Boolean = true,
 )
