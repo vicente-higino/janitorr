@@ -1,4 +1,7 @@
-# Janitorr - Cleans up your media library
+# Janitorr for Windows — native Windows fork
+
+> [!IMPORTANT]
+> This is the native Windows fork of [Schaka/janitorr](https://github.com/Schaka/janitorr). It adds Windows drive and UNC path handling, a PowerShell launcher, background Task Scheduler support, and downloadable Windows releases. See this fork's [Releases](https://github.com/vicente-higino/janitorr/releases) for ready-to-run packages; use the upstream repository for the original Docker-focused project.
 
 <p align="center">
     <img src="images/logos/janitorr_icon.png" width=384>
