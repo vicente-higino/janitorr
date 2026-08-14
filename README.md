@@ -39,6 +39,7 @@ It's THE solution for cleaning up your server and freeing up space before you ru
 - Exclude items from deletion via tags in Sonarr/Radarr
 - Configure expiration times for your media in the *arrs - optionally via Jellystat
 - Season by season removal for TV shows, removing entire shows or only keep a minimum number of episodes for weekly shows
+- Unmonitor Jellyfin-watched movies and individual episodes in Radarr/Sonarr to prevent post-watch upgrades
 - Clear requests from Seerr and clean up leftover metadata in Jellyfin so no orphaned files are left
 - Show a collection, containing rule matched media, on the Jellyfin home screen for a specific duration before deletion. Think: "Leaving soon"
 
@@ -72,6 +73,32 @@ Before you create a new issue, please check previous issues to make sure nobody 
 [The Wiki](https://github.com/Schaka/janitorr/wiki) also contains a troubleshooting section with commons errors.
 
 If you have any questions, consult the [FAQ section](https://github.com/Schaka/janitorr/wiki/FAQ) before starting a [new discussion](https://github.com/Schaka/janitorr/discussions).
+
+### Unmonitor after watch
+
+Janitorr can receive `PlaybackStop` events directly from Jellyfin and unmonitor media once Jellyfin marks the playback as completed. This uses Jellyfin's own played-percentage setting; it does not poll Jellystat, Streamystats, or janitorr-stats. Movies are unmonitored in Radarr, while only the watched episode is unmonitored in Sonarr. Episodes sharing the same physical file are handled together so that file cannot be replaced by an upgrade. Items carrying an `application.exclusion-tags` tag are skipped.
+
+Enable the receiver with a long random secret:
+
+```yml
+server:
+  port: ${SERVER_PORT:9797}
+
+application:
+  unmonitor-after-watch:
+    enabled: true
+    webhook-secret: "replace-with-a-long-random-secret"
+```
+
+Install Jellyfin's official [**Webhook** plugin](https://github.com/jellyfin/jellyfin-plugin-webhook) and add a **Generic Destination** with:
+
+- Webhook URL: `http://janitorr:9797/api/webhooks/jellyfin` when both applications share a Docker network, or `http://127.0.0.1:9797/api/webhooks/jellyfin` for a native same-machine installation.
+- Notification type: **Playback Stop** only.
+- **Send All Properties** enabled.
+- Content type `application/json` or Jellyfin's default `text/plain`; Janitorr accepts both.
+- Header `X-Janitorr-Webhook-Secret` set to the same secret as `application.yml`.
+
+The endpoint must be reachable from Jellyfin, and Janitorr must run continuously with `application.run-once: false`. Janitorr listens on port `9797` by default. Change `server.port` in `application.yml` or set the `SERVER_PORT` environment variable to use another port, and use the same port in the webhook URL. Publish the port only when Jellyfin cannot reach Janitorr through the existing container network. `application.dry-run: true` accepts and logs completed playbacks without changing Sonarr or Radarr. This is event-driven and has no historical backfill: only completed-playback webhooks received while the feature is enabled can change monitoring.
 
 ## Setup
 
@@ -239,7 +266,7 @@ media-server-leaving-soon-dir: "/library/leaving-soon"
 
 Before using this, please make sure you've created the `application.yml` file and put it in the correct config directory you intend to map.
 The application requires it. You need to supply it, or Janitorr will not start correctly.
-You don't have to publish ANY ports on the host machine.
+You don't have to publish any ports on the host machine when every caller shares Janitorr's Docker network. If Jellyfin must reach Janitorr through the host, publish the configured HTTP port (for example `9797:9797`).
 If you're seeing any problems, consult [the Wiki](https://github.com/Schaka/janitorr/wiki/Troubleshooting).
 
 An example of a `docker-compose.yml` may look like this:

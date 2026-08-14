@@ -1,4 +1,7 @@
 # Native Windows configuration. Use forward slashes in drive paths, and keep dry-run enabled until logs look correct.
+server:
+  port: ${SERVER_PORT:9797} # Janitorr HTTP/webhook port; edit this value or set the SERVER_PORT environment variable
+
 logging:
   level:
     com.github.schaka: INFO # Set to DEBUG or TRACE to get more info about what Janitorr is doing
@@ -27,6 +30,12 @@ application:
   exclusion-tags: # Set these tags to your movies or TV shows in the *arrs to exclude media from being cleaned up
     - "janitorr_keep"
     - "janitorr_keep_too"
+
+  # React to Jellyfin PlaybackStop webhooks and unmonitor media that Jellyfin marked played.
+  # Requires the official Jellyfin Webhook plugin; see the README for destination setup.
+  unmonitor-after-watch:
+    enabled: false
+    webhook-secret: "replace-with-a-long-random-secret"
 
   media-deletion:
     enabled: true

@@ -7,6 +7,7 @@ import com.github.schaka.janitorr.servarr.HistorySort.MOST_RECENT
 import com.github.schaka.janitorr.servarr.HistorySort.OLDEST
 import com.github.schaka.janitorr.servarr.LibraryItem
 import com.github.schaka.janitorr.servarr.ServarrService
+import com.github.schaka.janitorr.servarr.WatchedMedia
 import com.github.schaka.janitorr.servarr.data_structures.RadarrImportListExclusion
 import com.github.schaka.janitorr.servarr.data_structures.SonarrImportListExclusion
 import com.github.schaka.janitorr.servarr.data_structures.Tag
@@ -92,6 +93,53 @@ open class RadarrRestService(
             } else {
                 log.info("Deleting movie ({}), id: {}, imdb: {}", movie.parentPath, movie.id, movie.imdbId)
             }
+        }
+    }
+
+    override fun unmonitorWatched(media: WatchedMedia) {
+        if (media !is WatchedMedia.Movie) {
+            return
+        }
+
+        val match = findMovie(media) ?: return
+        val movie = radarrClient.getMovie(match.id)
+        if (movie.tags.any { movieTagId -> keepTags.any { it.id == movieTagId } }) {
+            log.info("Not unmonitoring watched movie {} because it has an exclusion tag", movie.title)
+            return
+        }
+        if (!movie.monitored) {
+            log.debug("Watched movie {} is already unmonitored", movie.title)
+            return
+        }
+
+        if (applicationProperties.dryRun) {
+            log.info("Dry run - would unmonitor watched movie {}", movie.title)
+            return
+        }
+
+        movie.monitored = false
+        radarrClient.updateMovie(movie.id, movie)
+        log.info("Unmonitoring watched movie {}", movie.title)
+    }
+
+    private fun findMovie(media: WatchedMedia.Movie) = radarrClient.getAllMovies().let { movies ->
+        val matches = media.tmdbId
+            ?.let { tmdbId -> movies.filter { it.tmdbId == tmdbId } }
+            ?.takeIf { it.isNotEmpty() }
+            ?: media.imdbId?.let { imdbId -> movies.filter { it.imdbId.equals(imdbId, ignoreCase = true) } }
+            ?: emptyList()
+
+        if (matches.size != 1) {
+            log.warn(
+                "Could not uniquely match watched movie {} in Radarr (tmdb: {}, imdb: {}, matches: {})",
+                media.title,
+                media.tmdbId,
+                media.imdbId,
+                matches.size,
+            )
+            null
+        } else {
+            matches.single()
         }
     }
 

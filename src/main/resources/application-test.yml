@@ -21,6 +21,10 @@ application:
     - "janitorr_keep"
     - "janitorr_keep_too"
 
+  unmonitor-after-watch:
+    enabled: false
+    webhook-secret: "test-webhook-secret"
+
   media-deletion:
     enabled: false
     movie-expiration:
