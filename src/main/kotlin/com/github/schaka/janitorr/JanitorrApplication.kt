@@ -1,5 +1,7 @@
 package com.github.schaka.janitorr
 
+import feign.Logger
+import org.springframework.aot.hint.annotation.RegisterReflectionForBinding
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -16,6 +18,7 @@ import java.nio.file.Path
 @EnableScheduling
 @ConfigurationPropertiesScan
 @SpringBootApplication
+@RegisterReflectionForBinding(Logger.Level::class)
 class JanitorrApplication {
 
 }
