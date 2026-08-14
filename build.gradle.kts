@@ -13,15 +13,16 @@ import org.springframework.boot.gradle.tasks.run.BootRun
 
 plugins {
 
+    // Kotlin must be applied before Spring AOT/Native Build Tools so Kotlin
+    // outputs and generated resources are present on the native classpath.
+    kotlin("jvm")
+    kotlin("plugin.spring")
+
     id("idea")
     id("org.springframework.boot")
-    id("org.springframework.boot.aot")
     id("org.graalvm.buildtools.native")
     id("io.spring.dependency-management")
     id("net.nemerosa.versioning")
-
-    kotlin("jvm")
-    kotlin("plugin.spring")
 
 }
 
