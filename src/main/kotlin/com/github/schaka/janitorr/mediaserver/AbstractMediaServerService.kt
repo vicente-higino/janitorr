@@ -10,6 +10,7 @@ import com.github.schaka.janitorr.servarr.LibraryItem
 import org.slf4j.LoggerFactory
 import org.springframework.util.FileSystemUtils
 import java.nio.file.Files
+import java.nio.file.FileSystemException
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import kotlin.io.path.Path
@@ -56,7 +57,18 @@ abstract class AbstractMediaServerService {
     private fun createSymLink(source: Path, target: Path, type: String) {
         if (!Files.exists(target)) {
             log.debug("Creating {} link from {} to {}", type, source, target)
-            Files.createSymbolicLink(target, source)
+            try {
+                Files.createSymbolicLink(target, source)
+            } catch (e: FileSystemException) {
+                if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) {
+                    throw IllegalStateException(
+                        "Windows could not create the symbolic link '$target'. " +
+                            "Enable Windows Developer Mode or run Janitorr with permission to create symbolic links.",
+                        e
+                    )
+                }
+                throw e
+            }
         } else {
             log.debug("{} link already exists from {} to {}", type, source, target)
         }
@@ -165,7 +177,7 @@ abstract class AbstractMediaServerService {
                 if (log.isDebugEnabled){
                     log.error("Couldn't find path {} - {}", it.parentPath, it, e)
                 } else {
-                    log.error("Couldn't find path {}", it.parentPath)
+                    log.error("Couldn't create Leaving Soon link for {}: {}", it.parentPath, e.message)
                 }
             }
         }

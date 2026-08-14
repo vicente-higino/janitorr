@@ -39,7 +39,7 @@ abstract class BaseMediaServerService(
 
     companion object {
         private val log = LoggerFactory.getLogger(this::class.java.enclosingClass)
-        private val windowsRegex = Regex("/\\w:.*")
+        private val windowsDrivePath = Regex("^[A-Za-z]:[\\\\/].*")
     }
 
     /**
@@ -219,10 +219,8 @@ abstract class BaseMediaServerService(
         val collectionFilter = libraryType.collectionType.lowercase()
         // subdirectory (i.e. /leaving-soon/tv/media, /leaving-soon/movies/tag-based
         val path = Path(fileSystemProperties.leavingSoonDir, libraryType.folderName, cleanupType.folderName)
-        val mediaServerPath = Path(fileSystemProperties.mediaServerLeavingSoonDir ?: fileSystemProperties.leavingSoonDir, libraryType.folderName, cleanupType.folderName)
-        val pathString = mediaServerPath.toUri().path.removeSuffix("/")
-        // Windows paths may have a trailing trash - Windows Jellyfin/Emby can't deal with that, this is a bit hacky but makes development easier
-        val pathForMediaServer = if (windowsRegex.matches(pathString)) pathString.replaceFirst("/", "") else pathString
+        val mediaServerBasePath = fileSystemProperties.mediaServerLeavingSoonDir ?: fileSystemProperties.leavingSoonDir
+        val pathForMediaServer = pathForMediaServer(mediaServerBasePath, libraryType.folderName, cleanupType.folderName)
 
         // Clean up library - consider also deleting the collection in Jellyfin/Emby
         if (items.isEmpty()) {
@@ -259,6 +257,29 @@ abstract class BaseMediaServerService(
         populateExtraFiles(libraryType, items)
         createLinks(items, path, libraryType)
         createEmptyFile(path)
+    }
+
+    /**
+     * Keep the path in the syntax configured for the media server.
+     *
+     * Parsing a media-server path through the local [Path] provider can change a
+     * Windows drive or UNC path and also breaks intentionally cross-platform
+     * mappings (for example, native Windows Janitorr with containerized Jellyfin).
+     */
+    internal fun pathForMediaServer(basePath: String, vararg elements: String): String {
+        val windowsPath = windowsDrivePath.matches(basePath) || basePath.startsWith("\\\\") || basePath.startsWith("//")
+        val separator = if (windowsPath) '\\' else '/'
+        val normalizedBasePath = if (windowsPath) basePath.replace('/', '\\') else basePath
+        val segments = listOf(normalizedBasePath.trimEnd('/', '\\')) + elements.map { it.trim('/', '\\') }
+        return segments.joinToString(separator.toString())
+    }
+
+    internal fun mediaServerPathsEquivalent(first: String, second: String): Boolean {
+        val firstWindowsPath = windowsDrivePath.matches(first) || first.startsWith("\\\\") || first.startsWith("//")
+        val secondWindowsPath = windowsDrivePath.matches(second) || second.startsWith("\\\\") || second.startsWith("//")
+        val firstNormalized = first.replace('\\', '/').trimEnd('/')
+        val secondNormalized = second.replace('\\', '/').trimEnd('/')
+        return firstNormalized.equals(secondNormalized, ignoreCase = firstWindowsPath || secondWindowsPath)
     }
 
     override fun getAllFavoritedItems(): List<LibraryContent> {

@@ -1,6 +1,8 @@
 
 import net.nemerosa.versioning.VersioningExtension
 import org.gradle.plugins.ide.idea.model.IdeaModel
+import org.gradle.api.tasks.Sync
+import org.gradle.api.tasks.bundling.Zip
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.springframework.boot.gradle.dsl.SpringBootExtension
@@ -189,4 +191,35 @@ tasks.withType<BootBuildImage> {
         "BPE_DELIM_JAVA_TOOL_OPTIONS" to " ",
         "BPE_APPEND_JAVA_TOOL_OPTIONS" to "-XX:ReservedCodeCacheSize=30M -Xss200K -Xlog:cds=info -Xlog:aot=info -Xlog:class+path=info",
     )
+}
+
+val prepareWindowsDist by tasks.registering(Sync::class) {
+    group = "distribution"
+    description = "Assembles the native Windows Janitorr distribution."
+    dependsOn(tasks.named<BootJar>("bootJar"))
+
+    into(layout.buildDirectory.dir("windows-dist"))
+
+    from(tasks.named<BootJar>("bootJar").flatMap { it.archiveFile }) {
+        rename { "janitorr.jar" }
+    }
+    from("windows/start-janitorr.ps1")
+    from("windows/install-scheduled-task.ps1")
+    from("windows/application.yml")
+    from("docs/windows.md") {
+        rename { "README.md" }
+    }
+}
+
+tasks.register<Zip>("windowsDistZip") {
+    group = "distribution"
+    description = "Builds a ready-to-extract native Windows ZIP."
+    dependsOn(prepareWindowsDist)
+
+    archiveBaseName.set("janitorr-windows")
+    destinationDirectory.set(layout.buildDirectory.dir("distributions"))
+
+    into("janitorr-windows") {
+        from(prepareWindowsDist)
+    }
 }

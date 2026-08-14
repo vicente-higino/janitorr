@@ -31,7 +31,17 @@ open class JellyfinRestService(
         return mediaServerClient.listLibraries().first { it.CollectionType?.lowercase() == collectionTypeLower && it.Name == libraryName }
     }
 
-    override fun addPathToLibrary(leavingSoonCollection: VirtualFolderResponse, pathForMediaServer: String) {
+    override fun addPathToLibrary(leavingSoonCollection: VirtualFolderResponse, pathForMediaServer: String) =
+        addPathToLibraryWithMigration(leavingSoonCollection, pathForMediaServer)
+
+    internal fun addPathToLibraryWithMigration(leavingSoonCollection: VirtualFolderResponse, pathForMediaServer: String) {
+        val equivalentPath = leavingSoonCollection.Locations.firstOrNull {
+            it != pathForMediaServer && mediaServerPathsEquivalent(it, pathForMediaServer)
+        }
+        if (equivalentPath != null) {
+            mediaServerClient.removePathFromLibrary(leavingSoonCollection.Name, equivalentPath, refresh = false)
+        }
+
         return mediaServerClient.addPathToLibrary(
             AddPathRequest(leavingSoonCollection.Name, PathInfo(pathForMediaServer))
         )

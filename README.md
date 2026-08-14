@@ -75,6 +75,18 @@ If you have any questions, consult the [FAQ section](https://github.com/Schaka/j
 Currently, the code is only published as a docker image to [GitHub](https://github.com/Schaka/janitorr/pkgs/container/janitorr).
 If you cannot use Docker, you'll have to compile it yourself from source.
 
+### Native Windows
+
+For a stack running directly on Windows, Janitorr can be packaged as a native Windows Java application. This preserves drive-letter and UNC paths returned by Sonarr and Radarr and does not require Docker for Janitorr.
+
+Build the ready-to-extract ZIP from PowerShell:
+
+```powershell
+.\gradlew.bat windowsDistZip
+```
+
+Then follow the [Windows setup guide](docs/windows.md) to configure paths, validate Java, and start Janitorr. Keep dry-run enabled while validating the setup.
+
 Depending on the configuration, files will be deleted if they are older than x days. Age is determined by your grab
 history in the *arr apps. By default, it will choose the oldest file in the history.
 If Jellystat or Streamystats is set up, the most recent watch date overwrites the grab history, if it exists.

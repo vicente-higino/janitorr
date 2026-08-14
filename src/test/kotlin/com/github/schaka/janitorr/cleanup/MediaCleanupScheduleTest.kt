@@ -85,7 +85,7 @@ class MediaCleanupScheduleTest {
     }
 
     @Test
-    fun `Duration is default when offset is disabled`() {
+    fun `Offset disabled uses the current deletion threshold`() {
         val fileSystemProperties = FileSystemProperties(
             access = true,
             leavingSoonDir = "/data/media/leaving-soon",
@@ -113,8 +113,13 @@ class MediaCleanupScheduleTest {
         )
 
         val duration = schedule.exposeDetermineLeavingSoonDuration(LibraryType.MOVIES)
+        val freeSpacePercentage = freeSpacePercent(fileSystemProperties.freeSpaceCheckDir)
+        val expected = applicationProperties.mediaDeletion.movieExpiration.entries
+            .filter { freeSpacePercentage < it.key }
+            .minByOrNull { it.key }
+            ?.value ?: FOREVER.duration
 
-        assertThat(duration).isEqualTo(FOREVER.duration)
+        assertThat(duration).isEqualTo(expected)
     }
 
     @Test
