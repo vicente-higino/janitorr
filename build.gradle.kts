@@ -166,6 +166,9 @@ graalvmNative {
         named("main") {
             imageName.set("janitorr")
             mainClass.set("com.github.schaka.janitorr.JanitorrApplicationKt")
+            // Spring Boot's AOT classpath currently omits Kotlin's main output
+            // on Windows, so add it explicitly for native-image.
+            classpath.from(sourceSets.main.get().output)
             resources.autodetect()
             buildArgs.add("-H:+AddAllCharsets")
         }

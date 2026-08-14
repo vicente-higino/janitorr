@@ -1,7 +1,7 @@
 # Janitorr for Windows — native Windows fork
 
 > [!IMPORTANT]
-> This is the native Windows fork of [Schaka/janitorr](https://github.com/Schaka/janitorr). It adds Windows drive and UNC path handling, a PowerShell launcher, background Task Scheduler support, and downloadable Windows releases. See this fork's [Releases](https://github.com/vicente-higino/janitorr/releases) for ready-to-run packages; use the upstream repository for the original Docker-focused project.
+> This is the native Windows fork of [Schaka/janitorr](https://github.com/Schaka/janitorr). It adds Windows drive and UNC path handling, a self-contained Windows executable, background Task Scheduler support, and downloadable Windows releases. See this fork's [Releases](https://github.com/vicente-higino/janitorr-windows/releases) for ready-to-run packages; use the upstream repository for the original Docker-focused project.
 
 <p align="center">
     <img src="images/logos/janitorr_icon.png" width=384>
@@ -80,19 +80,18 @@ If you cannot use Docker, you'll have to compile it yourself from source.
 
 ### Native Windows
 
-This fork includes a ready-to-run native Windows package. It preserves drive-letter and UNC paths returned by Sonarr and Radarr, runs without Docker, and can stay hidden in the background through Task Scheduler.
+This fork includes a ready-to-run, 64-bit native Windows package. It preserves drive-letter and UNC paths returned by Sonarr and Radarr, runs without Docker, and can stay hidden in the background through Task Scheduler. The release contains `janitorr.exe` and does **not** require Java, a JDK, a JAR launcher, or PowerShell.
 
 #### Requirements
 
-- 64-bit Java 25 or newer. The launcher searches `JANITORR_JAVA_HOME`, `JAVA_HOME`, `PATH`, common JDK locations, and Gradle-downloaded JDKs automatically.
 - Windows Developer Mode enabled, an account with the **Create symbolic links** right, or an elevated account. Leaving Soon libraries use symbolic links.
-- A Windows account that can read the media paths and write to the Leaving Soon directory.
+- A Windows account that can read the Sonarr/Radarr media paths, write to the Leaving Soon directory, and reach the configured services.
 
 Keep `application.dry-run: true` until the logs show exactly what Janitorr would delete. Leaving Soon library updates are not covered by dry-run mode.
 
 #### Download and configure
 
-1. Download the newest ZIP from this fork's [Windows releases](https://github.com/vicente-higino/janitorr/releases).
+1. Download the newest ZIP from this fork's [Windows releases](https://github.com/vicente-higino/janitorr-windows/releases).
 2. Extract it to a permanent directory such as `C:\janitorr-windows`.
 3. Edit the extracted `application.yml`. Replace every example path, URL, API key, username, and password.
 4. Leave `file-system.access: false` until the paths are correct and symbolic-link support is enabled. Then change it to `true` to enable Leaving Soon links.
@@ -118,50 +117,40 @@ file-system:
 
 Sonarr, Radarr, Janitorr, and Jellyfin/Emby must all be able to access their configured paths. With an entirely native Windows stack, `leaving-soon-dir` and `media-server-leaving-soon-dir` should normally be identical.
 
-#### Validate and start
+#### Test in the foreground
 
-Open PowerShell in the extracted directory:
+Double-click `janitorr.exe`, or open Command Prompt in the extracted directory and run:
 
-```powershell
-Set-Location "C:\janitorr-windows"
-Unblock-File .\start-janitorr.ps1, .\install-scheduled-task.ps1
-.\start-janitorr.ps1 -Check
-.\start-janitorr.ps1
+```bat
+janitorr.exe
 ```
 
-The `-Check` command validates Java, the JAR, and the configuration path without starting Janitorr. Test in the foreground first and stop it with `Ctrl+C` when satisfied.
-
-To select Java explicitly or keep the configuration elsewhere:
-
-```powershell
-.\start-janitorr.ps1 -JavaPath "C:\Program Files\Java\jdk-25\bin\java.exe" -Check
-.\start-janitorr.ps1 -ConfigPath "C:\ProgramData\Janitorr\application.yml"
-```
+The executable automatically loads `application.yml` from its own directory and writes `logs\janitorr.log` there. Keep `application.dry-run: true`, inspect that log, and stop the foreground process with `Ctrl+C` when the configuration is confirmed.
 
 #### Run in the background
 
-After the foreground test succeeds, install an at-logon scheduled task and start it immediately:
+Use the Task Scheduler GUI so Janitorr runs without an open console window:
 
-```powershell
-.\install-scheduled-task.ps1 -StartNow
-```
+1. Open **Task Scheduler**, choose **Create Task** (not *Create Basic Task*), and name it `Janitorr`.
+2. On **General**, select **Run whether user is logged on or not** and **Hidden**. Enable **Run with highest privileges** only if the account needs elevation to create symbolic links.
+3. On **Triggers**, add **At startup** or **At log on**, depending on when Janitorr should start.
+4. On **Actions**, add **Start a program**. Set **Program/script** to `C:\janitorr-windows\janitorr.exe`, leave **Add arguments** empty, and set **Start in** to `C:\janitorr-windows`.
+5. On **Settings**, enable automatic restart after failure, select **Do not start a new instance** when already running, and disable any unwanted time limit.
+6. Save the task, enter the selected Windows account's password if prompted, then right-click the task and choose **Run**.
 
-The task hides the PowerShell and Java windows, prevents duplicate task instances, and restarts Janitorr after failures. Manage it with:
+The scheduled account must have access to all local and network paths. Use UNC paths instead of mapped drives when the task runs outside an interactive login. Confirm startup in `C:\janitorr-windows\logs\janitorr.log`; the task does not need console redirection because application logging goes directly to this file.
 
-```powershell
-Get-ScheduledTaskInfo -TaskName "Janitorr"
-Start-ScheduledTask -TaskName "Janitorr"
-Stop-ScheduledTask -TaskName "Janitorr"
-Unregister-ScheduledTask -TaskName "Janitorr"
-```
+When updating, stop the task, replace `janitorr.exe` in the same directory, preserve your edited `application.yml`, and start the task again.
 
-Logs are stored beside the launcher:
+#### Jellyfin Leaving Soon troubleshooting
 
-- `logs\janitorr.log` — application log.
-- `logs\janitorr-console.log` — redirected console output.
-- `logs\janitorr-error.log` — redirected standard error.
+The symlinks existing on disk only proves that Janitorr created them. If Jellyfin does not show their contents, check all of the following:
 
-When updating, stop the task, replace the launcher and JAR in the same installation directory, preserve your edited `application.yml`, and start the task again.
+- `file-system.access` is `true`, the Jellyfin client is enabled, and the configured Jellyfin user has permission to manage libraries.
+- The Windows account running the **Jellyfin Server** service can read both the Leaving Soon directory and every symlink target. Test the paths as that account; Janitorr's account and Jellyfin's account can have different access.
+- For a native Windows Jellyfin installation, `leaving-soon-dir` and `media-server-leaving-soon-dir` normally contain the same absolute drive or UNC path. A Docker-hosted Jellyfin needs its own container-visible value for `media-server-leaving-soon-dir`.
+- In Jellyfin Dashboard > Libraries, the Leaving Soon libraries contain the generated paths such as `D:\Media\leaving-soon\movies\media` and `D:\Media\leaving-soon\tv\media`, not only the parent directory. Run **Scan All Libraries** after correcting a path or permission.
+- `logs\janitorr.log` contains no failed Jellyfin API calls, access-denied errors, or symbolic-link errors. Set `logging.level.com.github.schaka: DEBUG` temporarily for more detail.
 
 Native Windows Jellyfin paths are registered with backslashes. Existing equivalent Leaving Soon paths using forward slashes are migrated automatically on the next Janitorr run.
 
@@ -169,13 +158,13 @@ For more troubleshooting, including symbolic-link permissions and pre-login sche
 
 #### Build from source
 
-To create the package yourself, run this from PowerShell in the repository:
+Building is only necessary for contributors. Install GraalVM for JDK 25 and Visual Studio 2022 Build Tools with the C++ workload, then run this from Command Prompt in the repository:
 
-```powershell
-.\gradlew.bat windowsDistZip
+```bat
+gradlew.bat test windowsDistZip
 ```
 
-The ZIP is written to `build\distributions\janitorr-windows-<version>.zip`.
+The ZIP is written to `build\distributions\janitorr-windows-native-<version>.zip`.
 
 Depending on the configuration, files will be deleted if they are older than x days. Age is determined by your grab
 history in the *arr apps. By default, it will choose the oldest file in the history.
