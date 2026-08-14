@@ -1,32 +1,20 @@
 # Janitorr on Windows
 
-This distribution runs Janitorr directly on Windows, so paths returned by native Windows installations of Sonarr and Radarr remain Windows paths. Docker is not required for Janitorr itself.
+This fork packages Janitorr as a self-contained, 64-bit `janitorr.exe`. The release does not require Docker, Java, a JDK, a JAR launcher, or PowerShell. Windows drive-letter and UNC paths returned by native Sonarr and Radarr installations remain Windows paths.
 
-## Requirements
+## Install
 
-- 64-bit Java 25 or newer. The launcher checks `JANITORR_JAVA_HOME`, `JAVA_HOME`, `PATH`, common JDK install directories, and Gradle's downloaded toolchains, then selects a compatible Java automatically.
-- Windows Developer Mode enabled, or an account with the **Create symbolic links** right. Janitorr uses symbolic links for Leaving Soon libraries.
-- The Windows account running Janitorr must be able to read the media paths and create files in the Leaving Soon directory.
+1. Download the latest ZIP from the [Windows releases](https://github.com/vicente-higino/janitorr-windows/releases).
+2. Extract it to a permanent directory such as `C:\janitorr-windows`.
+3. Edit `application.yml` beside `janitorr.exe`. Replace every example path, URL, API key, username, and password.
+4. Keep `application.dry-run: true` until `logs\janitorr.log` shows exactly what Janitorr would do. Leaving Soon library changes are not covered by dry-run mode.
+5. Keep `file-system.access: false` until all paths are correct and the Windows account can create symbolic links. Then change it to `true` to enable Leaving Soon.
 
-Keep `application.dry-run: true` until the log shows exactly the media you expect. Leaving Soon library updates are not covered by dry-run mode.
-
-## Build the Windows package
-
-Open PowerShell in the repository and run:
-
-```powershell
-.\gradlew.bat windowsDistZip
-```
-
-The package is written to `build\distributions\janitorr-windows-<version>.zip`. Extract it to a permanent directory such as `C:\Apps\Janitorr`.
+Enable Windows Developer Mode, grant the scheduled account the **Create symbolic links** user right, or run it with sufficient privileges. That account must also be able to read the media paths, write to the Leaving Soon directory, and reach every configured service.
 
 ## Configure paths
 
-Edit `application.yml` in the extracted directory. The included template uses `D:/Media` as an example; replace every example path with your actual location.
-
-The template starts with `file-system.access: false` so an unedited configuration cannot create Leaving Soon links. Change it to `true` only after the paths are correct and Windows symbolic-link support is enabled.
-
-Prefer forward slashes in YAML drive paths:
+Forward slashes avoid YAML escaping problems in drive paths:
 
 ```yml
 file-system:
@@ -36,7 +24,7 @@ file-system:
   free-space-check-dir: "D:/Media"
 ```
 
-UNC shares are supported too:
+Use UNC paths for network shares, especially from Task Scheduler. Mapped drive letters belong to an interactive login session and might not exist for a background task:
 
 ```yml
 file-system:
@@ -45,76 +33,59 @@ file-system:
   free-space-check-dir: "//nas/media"
 ```
 
-Use UNC paths instead of mapped drive letters when Janitorr will run through Task Scheduler or as another Windows account, because drive mappings are scoped to a login session.
+Sonarr, Radarr, Janitorr, and Jellyfin/Emby must all use paths they can access. For an entirely native Windows stack, `leaving-soon-dir` and `media-server-leaving-soon-dir` should normally be identical. Only use a different media-server path when Jellyfin/Emby runs in a container or on another host and sees the directory under a different path.
 
-Sonarr, Radarr, Janitorr, and Jellyfin/Emby must refer to the media and Leaving Soon directories using paths they can access. With a fully native Windows stack this normally means using the same drive or UNC paths in every application. `media-server-leaving-soon-dir` only needs to differ when Jellyfin/Emby sees that one directory under another path.
+## Test in the foreground
 
-Change the client URLs to `localhost` or the Windows hostnames/IP addresses where each service listens, and replace all example API keys and credentials.
+Open Command Prompt in the extracted directory and run:
 
-## Start Janitorr
-
-Validate Java, the JAR, and the configuration path without starting Janitorr:
-
-```powershell
-.\start-janitorr.ps1 -Check
+```bat
+janitorr.exe
 ```
 
-If several Java versions are installed and you want to select one explicitly:
+The executable loads `application.yml` and creates `logs\janitorr.log` in its own directory. Stop it with `Ctrl+C` after confirming the configuration and service connections.
 
-```powershell
-.\start-janitorr.ps1 -JavaPath "C:\Program Files\Java\jdk-25\bin\java.exe" -Check
+## Run without a window
+
+Create the task through the Windows Task Scheduler GUI:
+
+1. Choose **Create Task** and name it `Janitorr`.
+2. On **General**, select **Run whether user is logged on or not** and **Hidden**. Enable **Run with highest privileges** only when the selected account needs elevation for symbolic links.
+3. On **Triggers**, add **At startup** or **At log on**.
+4. On **Actions**, add **Start a program** with these values:
+   - **Program/script:** `C:\janitorr-windows\janitorr.exe`
+   - **Add arguments:** leave empty
+   - **Start in:** `C:\janitorr-windows`
+5. On **Settings**, enable restart after failure, choose **Do not start a new instance**, and disable any unwanted execution time limit.
+6. Save the task, enter the account password if requested, and choose **Run**.
+
+Selecting **Run whether user is logged on or not** runs the executable in a non-interactive session, so no console window appears. Check `logs\janitorr.log` to confirm that it started. When upgrading, stop the task, replace `janitorr.exe`, preserve `application.yml`, and start the task again.
+
+## Jellyfin Leaving Soon troubleshooting
+
+Janitorr creates separate generated source paths such as:
+
+- `D:\Media\leaving-soon\movies\media`
+- `D:\Media\leaving-soon\tv\media`
+- `D:\Media\leaving-soon\movies\tag-based`
+- `D:\Media\leaving-soon\tv\tag-based`
+
+It adds the relevant paths to the configured Jellyfin Leaving Soon libraries. Native Windows paths are registered with backslashes, and equivalent paths previously registered with forward slashes are migrated automatically.
+
+If the symlinks exist but Jellyfin shows no files:
+
+1. Confirm `file-system.access: true`, `clients.jellyfin.enabled: true`, and valid Jellyfin credentials.
+2. In Jellyfin Dashboard > Libraries, verify that the Leaving Soon libraries contain the generated child paths, not only the `leaving-soon` parent.
+3. Confirm that the Windows account running the **Jellyfin Server** service can traverse the Leaving Soon directory and read every symlink target. This can differ from the account running Janitorr.
+4. Run **Scan All Libraries** in Jellyfin.
+5. Check `logs\janitorr.log` for Jellyfin API, access-denied, and symbolic-link errors. Temporarily change `logging.level.com.github.schaka` from `INFO` to `DEBUG` in `application.yml` for more detail.
+
+## Build from source
+
+End users should use the release ZIP. Contributors building locally need GraalVM for JDK 25 and Visual Studio 2022 Build Tools with the C++ workload:
+
+```bat
+gradlew.bat test windowsDistZip
 ```
 
-Then run it in the foreground:
-
-```powershell
-.\start-janitorr.ps1
-```
-
-If PowerShell blocks the downloaded script, unblock it once:
-
-```powershell
-Unblock-File .\start-janitorr.ps1
-```
-
-Logs are written to the `logs` directory beside the launcher. Stop the foreground process with `Ctrl+C`.
-
-To use a configuration stored elsewhere:
-
-```powershell
-.\start-janitorr.ps1 -ConfigPath "C:\ProgramData\Janitorr\application.yml"
-```
-
-After the foreground setup is stable, install an at-logon scheduled task and start it immediately:
-
-```powershell
-.\install-scheduled-task.ps1 -StartNow
-```
-
-The task runs with the current Windows account, starts Java without a console window, prevents duplicate instances, and restarts Janitorr after a failure. The application log is written to `logs\janitorr.log`. Redirected console output is also captured in `logs\janitorr-console.log` and `logs\janitorr-error.log`; an existing console log is timestamped before a new background process starts.
-
-Check its status or start/stop it with:
-
-```powershell
-Get-ScheduledTaskInfo -TaskName "Janitorr"
-Start-ScheduledTask -TaskName "Janitorr"
-Stop-ScheduledTask -TaskName "Janitorr"
-```
-
-Remove it with:
-
-```powershell
-Unregister-ScheduledTask -TaskName "Janitorr"
-```
-
-This at-logon setup does not store your Windows password. If Janitorr must start before anyone logs in, create the task in the Task Scheduler GUI using **Run whether user is logged on or not**, set **Start in** to the extracted Janitorr directory, and use an account that has access to every configured local or network path.
-
-When replacing the Windows package later, keep the same extracted directory and preserve your edited `application.yml`; the registered task will use the updated launcher and JAR on its next start.
-
-## Jellyfin Leaving Soon paths
-
-For native Windows Jellyfin, Janitorr registers Leaving Soon locations with native backslashes even when the YAML uses the recommended forward-slash form. Existing equivalent locations such as `C:/Media/leaving-soon/movies/media` are migrated to `C:\Media\leaving-soon\movies\media` automatically on the next Janitorr run. This avoids Jellyfin indexing the symlink targets without associating them with the Leaving Soon virtual library.
-
-## Symbolic-link troubleshooting
-
-If the log says Windows could not create a symbolic link, enable Developer Mode in Windows settings and restart Janitorr. In managed environments, grant the service account the **Create symbolic links** user right instead. Running an elevated PowerShell session is also sufficient, but is usually unnecessary after Developer Mode is enabled.
+The native ZIP is written to `build\distributions\janitorr-windows-native-<version>.zip`.
