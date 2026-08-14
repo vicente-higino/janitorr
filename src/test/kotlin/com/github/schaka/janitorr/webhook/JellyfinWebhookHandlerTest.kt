@@ -9,6 +9,7 @@ import com.github.schaka.janitorr.mediaserver.MediaServerClient
 import com.github.schaka.janitorr.mediaserver.jellyfin.JellyfinProperties
 import com.github.schaka.janitorr.mediaserver.library.LibraryContent
 import com.github.schaka.janitorr.mediaserver.library.ProviderIds
+import com.github.schaka.janitorr.mediaserver.library.items.ItemPage
 import com.github.schaka.janitorr.servarr.ServarrService
 import com.github.schaka.janitorr.servarr.WatchedMedia
 import io.mockk.every
@@ -65,8 +66,8 @@ class JellyfinWebhookHandlerTest {
 
     @Test
     fun `completed episode resolves series provider ids through Jellyfin`() {
-        every { jellyfinClient.getItem("series-id") } returns libraryItem(
-            ProviderIds(Tvdb = "456", Imdb = "tt456"),
+        every { jellyfinClient.getItem("series-id") } returns itemPage(
+            libraryItem(ProviderIds(Tvdb = "456", Imdb = "tt456")),
         )
 
         handler.handle(
@@ -90,6 +91,24 @@ class JellyfinWebhookHandlerTest {
         }
     }
 
+    @Test
+    fun `missing Jellyfin series is skipped`() {
+        every { jellyfinClient.getItem("series-id") } returns itemPage()
+
+        handler.handle(completedEpisode())
+
+        verify(exactly = 0) { sonarrService.unmonitorWatched(any()) }
+    }
+
+    @Test
+    fun `Jellyfin lookup failure is skipped`() {
+        every { jellyfinClient.getItem("series-id") } throws RuntimeException("Jellyfin unavailable")
+
+        handler.handle(completedEpisode())
+
+        verify(exactly = 0) { sonarrService.unmonitorWatched(any()) }
+    }
+
     private fun applicationProperties() = ApplicationProperties(
         mediaDeletion = MediaDeletion(),
         tagBasedDeletion = TagDeletion(),
@@ -103,6 +122,23 @@ class JellyfinWebhookHandlerTest {
         apiKey = "key",
         username = "user",
         password = "password",
+    )
+
+    private fun completedEpisode() = JellyfinPlaybackWebhook(
+        notificationType = "PlaybackStop",
+        itemType = "Episode",
+        name = "Episode",
+        seriesName = "Series",
+        seriesId = "series-id",
+        seasonNumber = 2,
+        episodeNumber = 4,
+        playedToCompletion = true,
+    )
+
+    private fun itemPage(vararg items: LibraryContent) = ItemPage(
+        Items = items.toList(),
+        StartIndex = 0,
+        TotalRecordCount = items.size,
     )
 
     private fun libraryItem(providerIds: ProviderIds) = LibraryContent(

@@ -102,6 +102,18 @@ class JellyfinWebhookHandler(
         if (itemId.isNullOrBlank()) {
             return null
         }
-        return jellyfinClient.getItem(itemId).ProviderIds
+
+        return try {
+            val matches = jellyfinClient.getItem(itemId).Items
+            if (matches.size != 1) {
+                log.warn("Jellyfin returned {} items while resolving provider IDs for {}", matches.size, itemId)
+                null
+            } else {
+                matches.single().ProviderIds
+            }
+        } catch (exception: RuntimeException) {
+            log.warn("Could not retrieve provider IDs from Jellyfin for {}: {}", itemId, exception.message)
+            null
+        }
     }
 }
