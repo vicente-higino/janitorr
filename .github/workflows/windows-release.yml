@@ -1,0 +1,103 @@
+name: Windows Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to create
+        required: true
+        default: v2.1.1-windows.1
+        type: string
+      prerelease:
+        description: Mark the release as a prerelease
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-2025
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Test and package Windows distribution
+        run: .\gradlew.bat test windowsDistZip
+
+      - name: Prepare release assets
+        id: assets
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          $archives = @(Get-ChildItem "build\distributions\janitorr-windows-*.zip")
+          if ($archives.Count -ne 1) {
+            throw "Expected exactly one Windows archive; found $($archives.Count)."
+          }
+
+          $asset = "build\distributions\janitorr-windows-$env:RELEASE_TAG.zip"
+          Copy-Item -LiteralPath $archives[0].FullName -Destination $asset
+
+          $checksum = "$asset.sha256"
+          $hash = (Get-FileHash -LiteralPath $asset -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $([System.IO.Path]::GetFileName($asset))" | Set-Content -LiteralPath $checksum -Encoding ascii
+
+          "archive=$asset" >> $env:GITHUB_OUTPUT
+          "checksum=$checksum" >> $env:GITHUB_OUTPUT
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: janitorr-windows-${{ inputs.tag }}
+          path: |
+            ${{ steps.assets.outputs.archive }}
+            ${{ steps.assets.outputs.checksum }}
+          if-no-files-found: error
+
+      - name: Create GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_PRERELEASE: ${{ inputs.prerelease }}
+          ARCHIVE: ${{ steps.assets.outputs.archive }}
+          CHECKSUM: ${{ steps.assets.outputs.checksum }}
+        run: |
+          $notesPath = Join-Path $env:RUNNER_TEMP "windows-release-notes.md"
+          @"
+          Unofficial native Windows build of Janitorr based on upstream v2.1.1.
+
+          Includes the Windows launcher, configuration template, Task Scheduler installer, native path handling, and Jellyfin Leaving Soon path migration.
+
+          The complete test suite ran on Windows before this release was created.
+          "@ | Set-Content -LiteralPath $notesPath -Encoding utf8
+
+          $arguments = @(
+            "release", "create", $env:RELEASE_TAG,
+            $env:ARCHIVE, $env:CHECKSUM,
+            "--repo", $env:GITHUB_REPOSITORY,
+            "--target", $env:GITHUB_SHA,
+            "--title", "Janitorr $env:RELEASE_TAG for Windows",
+            "--notes-file", $notesPath
+          )
+          if ($env:RELEASE_PRERELEASE -eq "true") {
+            $arguments += "--prerelease"
+          }
+
+          & gh @arguments
+          if ($LASTEXITCODE -ne 0) {
+            throw "GitHub release creation failed with exit code $LASTEXITCODE."
+          }
