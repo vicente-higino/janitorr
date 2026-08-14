@@ -6,7 +6,7 @@ on:
       tag:
         description: Release tag to create
         required: true
-        default: v2.1.1-windows.1
+        default: v2.1.1-windows.2
         type: string
       prerelease:
         description: Mark the release as a prerelease
@@ -43,6 +43,29 @@ jobs:
 
       - name: Test and build native Windows executable
         run: .\gradlew.bat test windowsDistZip
+
+      - name: Smoke test executable without Java or PowerShell
+        shell: cmd
+        working-directory: build\windows-dist
+        run: |
+          set "JAVA_HOME="
+          set "GRAALVM_HOME="
+          set "PATH=C:\Windows\System32;C:\Windows"
+          janitorr.exe --application.run-once=true --application.media-deletion.enabled=false --application.tag-based-deletion.enabled=false --application.episode-deletion.enabled=false --clients.sonarr.enabled=false --clients.radarr.enabled=false --clients.jellyfin.enabled=false --clients.jellyseerr.enabled=false --clients.jellystat.enabled=false --file-system.access=false
+          if not exist logs\janitorr.log exit /b 1
+          findstr /C:"Run once enabled, all cleanups run" logs\janitorr.log
+
+      - name: Verify self-contained package contents
+        shell: cmd
+        working-directory: build\windows-dist
+        run: |
+          if not exist janitorr.exe exit /b 1
+          if not exist application.yml exit /b 1
+          if not exist README.md exit /b 1
+          for /r %%F in (*.jar *.ps1) do @(
+            echo Unexpected runtime dependency: %%F
+            exit /b 1
+          )
 
       - name: Prepare release assets
         id: assets
