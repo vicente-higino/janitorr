@@ -66,6 +66,9 @@ jobs:
             echo Unexpected runtime dependency: %%F
             exit /b 1
           )
+          dumpbin /DEPENDENTS janitorr.exe > native-dependencies.txt
+          findstr /I "java.dll jvm.dll" native-dependencies.txt >NUL && exit /b 1
+          del native-dependencies.txt
 
       - name: Prepare release assets
         id: assets
