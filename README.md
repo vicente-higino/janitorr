@@ -80,15 +80,102 @@ If you cannot use Docker, you'll have to compile it yourself from source.
 
 ### Native Windows
 
-For a stack running directly on Windows, Janitorr can be packaged as a native Windows Java application. This preserves drive-letter and UNC paths returned by Sonarr and Radarr and does not require Docker for Janitorr.
+This fork includes a ready-to-run native Windows package. It preserves drive-letter and UNC paths returned by Sonarr and Radarr, runs without Docker, and can stay hidden in the background through Task Scheduler.
 
-Build the ready-to-extract ZIP from PowerShell:
+#### Requirements
+
+- 64-bit Java 25 or newer. The launcher searches `JANITORR_JAVA_HOME`, `JAVA_HOME`, `PATH`, common JDK locations, and Gradle-downloaded JDKs automatically.
+- Windows Developer Mode enabled, an account with the **Create symbolic links** right, or an elevated account. Leaving Soon libraries use symbolic links.
+- A Windows account that can read the media paths and write to the Leaving Soon directory.
+
+Keep `application.dry-run: true` until the logs show exactly what Janitorr would delete. Leaving Soon library updates are not covered by dry-run mode.
+
+#### Download and configure
+
+1. Download the newest ZIP from this fork's [Windows releases](https://github.com/vicente-higino/janitorr/releases).
+2. Extract it to a permanent directory such as `C:\janitorr-windows`.
+3. Edit the extracted `application.yml`. Replace every example path, URL, API key, username, and password.
+4. Leave `file-system.access: false` until the paths are correct and symbolic-link support is enabled. Then change it to `true` to enable Leaving Soon links.
+
+Forward slashes are recommended inside YAML drive paths:
+
+```yml
+file-system:
+  access: true
+  leaving-soon-dir: "D:/Media/leaving-soon"
+  media-server-leaving-soon-dir: "D:/Media/leaving-soon"
+  free-space-check-dir: "D:/Media"
+```
+
+UNC shares are supported. Prefer UNC paths over mapped drives for scheduled tasks because drive mappings belong to a login session:
+
+```yml
+file-system:
+  leaving-soon-dir: "//nas/media/leaving-soon"
+  media-server-leaving-soon-dir: "//nas/media/leaving-soon"
+  free-space-check-dir: "//nas/media"
+```
+
+Sonarr, Radarr, Janitorr, and Jellyfin/Emby must all be able to access their configured paths. With an entirely native Windows stack, `leaving-soon-dir` and `media-server-leaving-soon-dir` should normally be identical.
+
+#### Validate and start
+
+Open PowerShell in the extracted directory:
+
+```powershell
+Set-Location "C:\janitorr-windows"
+Unblock-File .\start-janitorr.ps1, .\install-scheduled-task.ps1
+.\start-janitorr.ps1 -Check
+.\start-janitorr.ps1
+```
+
+The `-Check` command validates Java, the JAR, and the configuration path without starting Janitorr. Test in the foreground first and stop it with `Ctrl+C` when satisfied.
+
+To select Java explicitly or keep the configuration elsewhere:
+
+```powershell
+.\start-janitorr.ps1 -JavaPath "C:\Program Files\Java\jdk-25\bin\java.exe" -Check
+.\start-janitorr.ps1 -ConfigPath "C:\ProgramData\Janitorr\application.yml"
+```
+
+#### Run in the background
+
+After the foreground test succeeds, install an at-logon scheduled task and start it immediately:
+
+```powershell
+.\install-scheduled-task.ps1 -StartNow
+```
+
+The task hides the PowerShell and Java windows, prevents duplicate task instances, and restarts Janitorr after failures. Manage it with:
+
+```powershell
+Get-ScheduledTaskInfo -TaskName "Janitorr"
+Start-ScheduledTask -TaskName "Janitorr"
+Stop-ScheduledTask -TaskName "Janitorr"
+Unregister-ScheduledTask -TaskName "Janitorr"
+```
+
+Logs are stored beside the launcher:
+
+- `logs\janitorr.log` — application log.
+- `logs\janitorr-console.log` — redirected console output.
+- `logs\janitorr-error.log` — redirected standard error.
+
+When updating, stop the task, replace the launcher and JAR in the same installation directory, preserve your edited `application.yml`, and start the task again.
+
+Native Windows Jellyfin paths are registered with backslashes. Existing equivalent Leaving Soon paths using forward slashes are migrated automatically on the next Janitorr run.
+
+For more troubleshooting, including symbolic-link permissions and pre-login scheduled tasks, see the complete [Windows setup guide](docs/windows.md).
+
+#### Build from source
+
+To create the package yourself, run this from PowerShell in the repository:
 
 ```powershell
 .\gradlew.bat windowsDistZip
 ```
 
-Then follow the [Windows setup guide](docs/windows.md) to configure paths, validate Java, and start Janitorr. Keep dry-run enabled while validating the setup.
+The ZIP is written to `build\distributions\janitorr-windows-<version>.zip`.
 
 Depending on the configuration, files will be deleted if they are older than x days. Age is determined by your grab
 history in the *arr apps. By default, it will choose the oldest file in the history.
