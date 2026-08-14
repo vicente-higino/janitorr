@@ -81,6 +81,9 @@ Janitorr can receive `PlaybackStop` events directly from Jellyfin and unmonitor 
 Enable the receiver with a long random secret:
 
 ```yml
+server:
+  port: ${SERVER_PORT:9797}
+
 application:
   unmonitor-after-watch:
     enabled: true
@@ -89,13 +92,13 @@ application:
 
 Install Jellyfin's official [**Webhook** plugin](https://github.com/jellyfin/jellyfin-plugin-webhook) and add a **Generic Destination** with:
 
-- Webhook URL: `http://janitorr:8080/api/webhooks/jellyfin` when both applications share a Docker network, or `http://127.0.0.1:8080/api/webhooks/jellyfin` for a native same-machine installation.
+- Webhook URL: `http://janitorr:9797/api/webhooks/jellyfin` when both applications share a Docker network, or `http://127.0.0.1:9797/api/webhooks/jellyfin` for a native same-machine installation.
 - Notification type: **Playback Stop** only.
 - **Send All Properties** enabled.
 - Header `Content-Type: application/json`.
 - Header `X-Janitorr-Webhook-Secret` set to the same secret as `application.yml`.
 
-The endpoint must be reachable from Jellyfin, and Janitorr must run continuously with `application.run-once: false`. Publish Janitorr's port `8080` only when Jellyfin cannot reach it through the existing container network. `application.dry-run: true` accepts and logs completed playbacks without changing Sonarr or Radarr. This is event-driven and has no historical backfill: only completed-playback webhooks received while the feature is enabled can change monitoring.
+The endpoint must be reachable from Jellyfin, and Janitorr must run continuously with `application.run-once: false`. Janitorr listens on port `9797` by default. Change `server.port` in `application.yml` or set the `SERVER_PORT` environment variable to use another port, and use the same port in the webhook URL. Publish the port only when Jellyfin cannot reach Janitorr through the existing container network. `application.dry-run: true` accepts and logs completed playbacks without changing Sonarr or Radarr. This is event-driven and has no historical backfill: only completed-playback webhooks received while the feature is enabled can change monitoring.
 
 ## Setup
 
@@ -263,7 +266,7 @@ media-server-leaving-soon-dir: "/library/leaving-soon"
 
 Before using this, please make sure you've created the `application.yml` file and put it in the correct config directory you intend to map.
 The application requires it. You need to supply it, or Janitorr will not start correctly.
-You don't have to publish ANY ports on the host machine.
+You don't have to publish any ports on the host machine when every caller shares Janitorr's Docker network. If Jellyfin must reach Janitorr through the host, publish the configured HTTP port (for example `9797:9797`).
 If you're seeing any problems, consult [the Wiki](https://github.com/Schaka/janitorr/wiki/Troubleshooting).
 
 An example of a `docker-compose.yml` may look like this:

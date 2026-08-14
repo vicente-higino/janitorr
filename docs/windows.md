@@ -12,6 +12,15 @@ This fork packages Janitorr as a self-contained, 64-bit `janitorr.exe`. The rele
 
 Enable Windows Developer Mode, grant the scheduled account the **Create symbolic links** user right, or run it with sufficient privileges. That account must also be able to read the media paths, write to the Leaving Soon directory, and reach every configured service.
 
+Janitorr's HTTP and Jellyfin webhook receiver listens on port `9797` by default. Change the value in `application.yml`, or set the `SERVER_PORT` environment variable, to use another port:
+
+```yml
+server:
+  port: ${SERVER_PORT:9797}
+```
+
+Use the configured port in the Jellyfin webhook URL and allow inbound TCP access through Windows Firewall when Jellyfin runs on another machine.
+
 ## Configure paths
 
 Forward slashes avoid YAML escaping problems in drive paths:

@@ -41,7 +41,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-jackson")
     implementation("org.springframework.boot:spring-boot-starter-kotlinx-serialization-json")
-    implementation("org.springframework.boot:spring-boot-webmvc")
+    implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("com.github.ben-manes.caffeine:caffeine")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
 

@@ -1,3 +1,6 @@
+server:
+  port: ${SERVER_PORT:9797} # Janitorr HTTP/webhook port; edit this value or set the SERVER_PORT environment variable
+
 logging:
   level:
     com.github.schaka: INFO # Set to DEBUG or TRACE to get more info about what Janitorr is doing
