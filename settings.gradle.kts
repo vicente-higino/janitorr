@@ -6,6 +6,7 @@ pluginManagement {
     val springDependencyManagementVersion: String by settings
     val versioningPluginVersion: String by settings
     val kotlinVersion: String by settings
+    val graalVmNativePluginVersion: String by settings
 
     plugins {
         id("org.gradle.toolchains.foojay-resolver-convention") version foojayResolverVersion
@@ -15,6 +16,7 @@ pluginManagement {
         id("net.nemerosa.versioning") version versioningPluginVersion
         kotlin("jvm") version kotlinVersion
         kotlin("plugin.spring") version kotlinVersion
+        id("org.graalvm.buildtools.native") version graalVmNativePluginVersion
     }
 
     repositories {

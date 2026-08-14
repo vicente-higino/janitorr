@@ -16,6 +16,7 @@ plugins {
     id("idea")
     id("org.springframework.boot")
     id("org.springframework.boot.aot")
+    id("org.graalvm.buildtools.native")
     id("io.spring.dependency-management")
     id("net.nemerosa.versioning")
 
@@ -155,6 +156,21 @@ tasks.withType<ProcessAot> {
     )
 }
 
+graalvmNative {
+    toolchainDetection.set(false)
+    metadataRepository {
+        enabled.set(true)
+    }
+    binaries {
+        named("main") {
+            imageName.set("janitorr")
+            mainClass.set("com.github.schaka.janitorr.JanitorrApplicationKt")
+            resources.autodetect()
+            buildArgs.add("-H:+AddAllCharsets")
+        }
+    }
+}
+
 tasks.withType<BootBuildImage> {
 
     docker.publishRegistry.url = "ghcr.io"
@@ -195,16 +211,12 @@ tasks.withType<BootBuildImage> {
 
 val prepareWindowsDist by tasks.registering(Sync::class) {
     group = "distribution"
-    description = "Assembles the native Windows Janitorr distribution."
-    dependsOn(tasks.named<BootJar>("bootJar"))
+    description = "Assembles the self-contained native Windows Janitorr distribution."
+    dependsOn(tasks.named("nativeCompile"))
 
     into(layout.buildDirectory.dir("windows-dist"))
 
-    from(tasks.named<BootJar>("bootJar").flatMap { it.archiveFile }) {
-        rename { "janitorr.jar" }
-    }
-    from("windows/start-janitorr.ps1")
-    from("windows/install-scheduled-task.ps1")
+    from(layout.buildDirectory.file("native/nativeCompile/janitorr.exe"))
     from("windows/application.yml")
     from("docs/windows.md") {
         rename { "README.md" }
@@ -213,10 +225,10 @@ val prepareWindowsDist by tasks.registering(Sync::class) {
 
 tasks.register<Zip>("windowsDistZip") {
     group = "distribution"
-    description = "Builds a ready-to-extract native Windows ZIP."
+    description = "Builds a ready-to-extract self-contained native Windows ZIP."
     dependsOn(prepareWindowsDist)
 
-    archiveBaseName.set("janitorr-windows")
+    archiveBaseName.set("janitorr-windows-native")
     destinationDirectory.set(layout.buildDirectory.dir("distributions"))
 
     into("janitorr-windows") {
