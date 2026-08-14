@@ -14,17 +14,12 @@ import com.github.schaka.janitorr.servarr.sonarr.episodes.EpisodeResponse
 import com.github.schaka.janitorr.servarr.sonarr.series.Season
 import com.github.schaka.janitorr.servarr.sonarr.series.SeriesPayload
 import org.slf4j.LoggerFactory
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.cache.annotation.Cacheable
-import org.springframework.stereotype.Service
 import java.time.LocalDateTime
 import kotlin.io.path.Path
 import kotlin.io.path.exists
 
-@Sonarr
-@ConditionalOnProperty(name = ["clients.sonarr.enabled"], havingValue = "true")
-@Service
-class SonarrRestService(
+open class SonarrRestService(
 
     val sonarrClient: SonarrClient,
 
@@ -59,7 +54,7 @@ class SonarrRestService(
     }
 
     @Cacheable(CACHE_NAME)
-    override fun getEntries(): List<LibraryItem> {
+    open override fun getEntries(): List<LibraryItem> {
         val allTags = sonarrClient.getAllTags()
 
         if (applicationProperties.wholeTvShow) {

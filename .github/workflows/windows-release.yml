@@ -51,9 +51,11 @@ jobs:
           set "JAVA_HOME="
           set "GRAALVM_HOME="
           set "PATH=C:\Windows\System32;C:\Windows"
-          janitorr.exe --application.run-once=true --application.media-deletion.enabled=false --application.tag-based-deletion.enabled=false --application.episode-deletion.enabled=false --clients.sonarr.enabled=false --clients.radarr.enabled=false --clients.jellyfin.enabled=false --clients.jellyseerr.enabled=false --clients.jellystat.enabled=false --file-system.access=false
+          janitorr.exe --application.run-once=true --application.training-run=true --application.media-deletion.enabled=false --application.tag-based-deletion.enabled=false --application.episode-deletion.enabled=false --clients.sonarr.enabled=true --clients.radarr.enabled=true --clients.jellyfin.enabled=false --clients.jellyseerr.enabled=false --clients.jellystat.enabled=false --file-system.access=false
           if not exist logs\janitorr.log exit /b 1
           findstr /C:"Run once enabled, all cleanups run" logs\janitorr.log
+          findstr /C:"Sonarr runtime configuration: enabled" logs\janitorr.log
+          findstr /C:"Radarr runtime configuration: enabled" logs\janitorr.log
 
       - name: Verify self-contained package contents
         shell: cmd

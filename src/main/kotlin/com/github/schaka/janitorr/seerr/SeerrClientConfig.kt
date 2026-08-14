@@ -1,6 +1,9 @@
 package com.github.schaka.janitorr.seerr
 
+import com.github.schaka.janitorr.config.ApplicationProperties
 import com.github.schaka.janitorr.config.DefaultClientProperties
+import com.github.schaka.janitorr.servarr.radarr.RadarrProperties
+import com.github.schaka.janitorr.servarr.sonarr.SonarrProperties
 import feign.Feign
 import feign.Request
 import feign.jackson3.Jackson3Decoder
@@ -33,5 +36,18 @@ class SeerrClientConfig {
                     it.header(CONTENT_TYPE, APPLICATION_JSON_VALUE)
                 }
                 .target(SeerrClient::class.java, properties.url + "/api/v1")
+    }
+
+    @Bean
+    fun seerrService(
+        seerrClient: SeerrClient,
+        seerrProperties: SeerrProperties,
+        sonarrProperties: SonarrProperties,
+        radarrProperties: RadarrProperties,
+        applicationProperties: ApplicationProperties,
+    ): SeerrService = if (seerrProperties.enabled) {
+        SeerrRestService(seerrClient, seerrProperties, sonarrProperties, radarrProperties, applicationProperties)
+    } else {
+        SeerrNoOpService()
     }
 }

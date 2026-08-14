@@ -6,7 +6,6 @@ import feign.Request
 import feign.jackson3.Jackson3Decoder
 import feign.jackson3.Jackson3Encoder
 import feign.slf4j.Slf4jLogger
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpHeaders.CONTENT_TYPE
@@ -14,7 +13,6 @@ import org.springframework.http.MediaType.APPLICATION_JSON_VALUE
 import tools.jackson.databind.json.JsonMapper
 
 @Configuration(proxyBeanMethods = false)
-@ConditionalOnProperty("clients.janitorr-stats.enabled", havingValue = "true")
 class JanitorrStatsClientConfig {
 
     @Bean
