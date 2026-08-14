@@ -6,7 +6,7 @@ on:
       tag:
         description: Release tag to create
         required: true
-        default: v2.1.1-windows.2
+        default: v2.1.1-windows.3
         type: string
       prerelease:
         description: Mark the release as a prerelease
